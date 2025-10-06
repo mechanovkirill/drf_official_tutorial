@@ -1,37 +1,46 @@
-from django.urls import path
-from rest_framework.urlpatterns import format_suffix_patterns
-from rest_framework import renderers
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 
-from snippets.views import api_root, SnippetViewSet, UserViewSet
+from snippets import views
 
-snippet_list = SnippetViewSet.as_view({
-    'get': 'list',
-    'post': 'create'
-})
-snippet_detail = SnippetViewSet.as_view({
-    'get': 'retrieve',
-    'put': 'update',
-    'patch': 'partial_update',
-    'delete': 'destroy'
-})
-snippet_highlight = SnippetViewSet.as_view({
-    'get': 'highlight'
-}, renderer_classes=[renderers.StaticHTMLRenderer])
-user_list = UserViewSet.as_view({
-    'get': 'list'
-})
-user_detail = UserViewSet.as_view({
-    'get': 'retrieve'
-})
+# Short answer: with DefaultRouter you don’t need your own api_root — the router auto-generates an API root view for /
+# that lists your registered routes. In your snippet, your custom api_root() function
+# isn’t used at all because your urlpatterns only include router.urls.
+#
+# Here’s what’s happening and your options:
+#
+# What DefaultRouter does
+# When you do:
+# router = DefaultRouter()
+# router.register(r'snippets', SnippetViewSet, basename='snippet')
+# router.register(r'users', UserViewSet, basename='user')
+# urlpatterns = [ path('', include(router.urls)), ]
+#
+# DefaultRouter creates:
+# an API root at / (class: APIRootView)
+# named routes like:
+# snippet-list, snippet-detail
+# user-list, user-detail
+# So visiting / returns something like:
+# {
+#   "snippets": "http://.../snippets/",
+#   "users": "http://.../users/"
+# }
 
 
+# Using ViewSets can be a really useful abstraction. It helps ensure that URL conventions will be consistent across
+# your API, minimizes the amount of code you need to write, and allows you to concentrate on the interactions and
+# representations your API provides rather than the specifics of the URL conf.
+# That doesn't mean it's always the right approach to take. There's a similar set of trade-offs to consider
+# as when using class-based views instead of function-based views.
+# Using ViewSets is less explicit than building your API views individually.
+
+# Create a router and register our ViewSets with it.
+router = DefaultRouter()
+router.register(r'snippets', views.SnippetViewSet, basename='snippet')
+router.register(r'users', views.UserViewSet, basename='user')
+
+# The API URLs are now determined automatically by the router.
 urlpatterns = [
-    path('', api_root),
-    path('snippets/',snippet_list, name='snippet-list'),
-    path('snippets/<int:pk>/', snippet_detail, name='snippet-detail'),
-    path('snippets/<int:pk>/highlight/', snippet_highlight, name='snippet-highlight'),
-    path('users/', user_list, name='user-list'),
-    path('users/<int:pk>/', user_detail, name='user-detail'),
+    path('', include(router.urls)),
 ]
-
-urlpatterns = format_suffix_patterns(urlpatterns)
